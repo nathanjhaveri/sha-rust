@@ -98,14 +98,26 @@ fn compute_sha(message: &[u8]) -> [u32; 5] {
 } 
 
 fn pre_process_message(message: &mut Vec<u8>) {
-    // Append a 1 bit to message and Ensure message length is such that message
-    // can be eavenly divided in to 512 bit chunks.
+    // Append a 1 bit to message, and pad with 0s until final 64-bits which
+    // should be the original message length.  The resulting message should be
+    // eavenly diviable in to 512 bit chunks.
 
+    let chunk_size = 512;
+    let blocks = chunk_size / 8;
+    let blocks_at_end_for_len = 64 / 8;
+    let max_pad = blocks - blocks_at_end_for_len;
     let one_bit: u8 = 0b10000000;
+    let len: u64 = (8 * message.len()) as u64;
+
     message.push(one_bit);
-    let pad_count = (64 - (message.len() % 64)) % 64;
+
+    let pad_count = (64 - ((message.len() + 8) % 64)) % 64;
     for i in 0..pad_count {
         message.push(0);
+    }
+
+    for i in (0..8).rev() {
+        message.push((len >> i * 8) as u8);
     }
 }
 
@@ -118,16 +130,25 @@ fn pre_process_length_min_512_bits() {
 
 #[test]
 fn pre_process_exactly_512_bits() {
-    let mut msg: Vec<u8> = vec![1; 63];
+    let mut msg: Vec<u8> = vec![1; 55];
     pre_process_message(&mut msg);
     assert_eq!(msg.len(), 64);
 }
 
 #[test]
 fn pre_process_multiple_512_bits() {
-    let mut msg: Vec<u8> = vec![1; 66];
+    let mut msg: Vec<u8> = vec![1; 64];
     pre_process_message(&mut msg);
     assert_eq!(msg.len(), 128);
+}
+
+#[test]
+fn pre_process_msg_len_appended() {
+    let mut msg: Vec<u8> = vec![1; 4];
+    pre_process_message(&mut msg);
+
+    // Last 64 bits should be input message length
+    assert_eq!(Some(&32), msg.last());
 }
 
 #[test]

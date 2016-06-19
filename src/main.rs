@@ -73,14 +73,6 @@
 
 fn main() {}
 
-struct Digest {
-    h0: u32,
-    h1: u32,
-    h2: u32,
-    h3: u32,
-    h4: u32,
-}
-
 fn hex_str(input: &str) -> &str {
     let bytes = input.as_bytes();
     let sha = compute_sha(bytes);
@@ -93,52 +85,71 @@ fn u8s_to_u32(u8s: &[u8]) -> u32 {
 
 fn compute_sha(input: &[u8]) -> [u32; 5] {
     let mut message = input.to_vec();
-    let mut h0 = 0x67452301;
-    let mut h1 = 0xEFCDAB89;
-    let mut h2 = 0x98BADCFE;
-    let mut h3 = 0x10325476;
-    let mut h4 = 0xC3D2E1F0;
-    let chunk_size = 512 / 8;
+    let mut h0: u32 = 0x67452301;
+    let mut h1: u32 = 0xEFCDAB89;
+    let mut h2: u32 = 0x98BADCFE;
+    let mut h3: u32 = 0x10325476;
+    let mut h4: u32 = 0xC3D2E1F0;
 
     pre_process_message(&mut message);
 
     let chunk_size = 512;
     let blocks_per_chunk = chunk_size / 8;
-
     let block_count = message.len() / blocks_per_chunk;
     let chunk_start_indexes = (0..block_count).map(|x| x * blocks_per_chunk);
+
     for chunk_start in chunk_start_indexes {
         let mut w: [u32; 80] = [0; 80];
         for i in 0..16 {
-            let slice: &[u8] = &message;
-            // w[i] = u8s_to_u32(&slice[(chunk_start * i)..(chunk_start * i + 4)]);
-            w[i] = u8s_to_u32(&slice[(1..4)]);
+            let slice_start = chunk_start + (i * 4);
+            let slice_end = slice_start + 4;
+            let int_slice = &message[slice_start..slice_end];
+            w[i] = u8s_to_u32(int_slice);
         }
 
-        let a = h0;
-        let b = h1;
-        let c = h2;
-        let d = h3;
-        let e = h4;
+        for i in 16..80 {
+            w[i] = (w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16]).rotate_left(1);
+        }
+
+        let mut a = h0;
+        let mut b = h1;
+        let mut c = h2;
+        let mut d = h3;
+        let mut e = h4;
 
         for i in 0..80 {
+            let (f, k) = match i {
+                0...19 => ((b & c) | ((!b) & d), 0x5A827999),
+                20...39 => ((b ^ c ^ d), 0x6ED9EBA1),
+                40...59 => ((b & c) | (b & d) | (c & d), 0x8F1BBCDC), 
+                60...79 => ((b ^ c ^ d), 0xCA62C1D6),
+                _ => panic!(),
+            };
 
+            let temp = a.rotate_left(5)
+                .overflowing_add(f)
+                .0
+                .overflowing_add(e)
+                .0
+                .overflowing_add(k)
+                .0
+                .overflowing_add(w[i])
+                .0;
+            e = d;
+            d = c;
+            c = b.rotate_left(30);
+            b = a;
+            a = temp;
         }
+
+        h0 = h0.overflowing_add(a).0;
+        h1 = h1.overflowing_add(b).0;
+        h2 = h2.overflowing_add(c).0;
+        h3 = h3.overflowing_add(d).0;
+        h4 = h4.overflowing_add(e).0;
     }
 
-    return [h0, h1, h2, h3, h4];
-}
-
-#[test]
-fn known_sha() {
-    assert_eq!("2fd4e1c67a2d28fced849ee1bb76e7391b93eb12",
-               hex_str("The quick brown fox jumps over the lazy dog"));
-}
-
-
-#[test]
-fn blank_sha() {
-    assert_eq!("da39a3ee5e6b4b0d3255bfef95601890afd80709", hex_str(""));
+    [h0, h1, h2, h3, h4]
 }
 
 
@@ -164,6 +175,36 @@ fn pre_process_message(message: &mut Vec<u8>) {
     for i in (0..8).rev() {
         message.push((len >> i * 8) as u8);
     }
+}
+
+
+#[test]
+fn known_sha() {
+    let string = "The quick brown fox jumps over the lazy dog".as_bytes();
+    let expected = [
+        0x2fd4e1c6,
+        0x7a2d28fc,
+        0xed849ee1,
+        0xbb76e739,
+        0x1b93eb12,
+    ];
+
+    let sha = compute_sha(&string);
+    assert_eq!(expected, sha);
+}
+
+#[test]
+fn blank_sha() {
+    let sha = compute_sha(&[]);
+    let h0 = 0xda39a3ee;
+    let h1 = 0x5e6b4b0d;
+    let h2 = 0x3255bfef;
+    let h3 = 0x95601890;
+    let h4 = 0xafd80709;
+
+    let expected = [h0, h1, h2, h3, h4];
+
+    assert_eq!(expected, sha);
 }
 
 #[test]

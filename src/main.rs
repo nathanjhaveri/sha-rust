@@ -1,9 +1,20 @@
-fn main() {}
+use std::io;
+use std::io::Read;
 
-fn hex_str(input: &str) -> &str {
-    let bytes = input.as_bytes();
-    let sha = compute_sha(bytes);
-    return "hi";
+fn main() {
+    let mut buf: Vec<u8> = Vec::new();
+    io::stdin().read_to_end(&mut buf).expect("Error");
+    let digest = compute_sha(&buf);
+    println!("{}", format_digest(&digest));
+}
+
+fn format_digest(digest: &[u32; 5]) -> String {
+    format!("{:08x}{:08x}{:08x}{:08x}{:08x}",
+            digest[0],
+            digest[1],
+            digest[2],
+            digest[3],
+            digest[4])
 }
 
 fn u8s_to_u32(u8s: &[u8]) -> u32 {
@@ -49,7 +60,7 @@ fn compute_sha(input: &[u8]) -> [u32; 5] {
             let (f, k) = match i {
                 0...19 => ((b & c) | ((!b) & d), 0x5A827999),
                 20...39 => ((b ^ c ^ d), 0x6ED9EBA1),
-                40...59 => ((b & c) | (b & d) | (c & d), 0x8F1BBCDC), 
+                40...59 => ((b & c) | (b & d) | (c & d), 0x8F1BBCDC),
                 60...79 => ((b ^ c ^ d), 0xCA62C1D6),
                 _ => panic!(),
             };
@@ -80,23 +91,17 @@ fn compute_sha(input: &[u8]) -> [u32; 5] {
     [h0, h1, h2, h3, h4]
 }
 
-
+// Append a 1 bit to message, and pad with 0s until final 64-bits which
+// should be the original message length.  The resulting message should be
+// eavenly diviable in to 512 bit chunks.
 fn pre_process_message(message: &mut Vec<u8>) {
-    // Append a 1 bit to message, and pad with 0s until final 64-bits which
-    // should be the original message length.  The resulting message should be
-    // eavenly diviable in to 512 bit chunks.
-
-    let chunk_size = 512;
-    let blocks = chunk_size / 8;
-    let blocks_at_end_for_len = 64 / 8;
-    let max_pad = blocks - blocks_at_end_for_len;
     let one_bit: u8 = 0b10000000;
     let len: u64 = (8 * message.len()) as u64;
 
     message.push(one_bit);
 
     let pad_count = (64 - ((message.len() + 8) % 64)) % 64;
-    for i in 0..pad_count {
+    for _ in 0..pad_count {
         message.push(0);
     }
 
@@ -105,17 +110,10 @@ fn pre_process_message(message: &mut Vec<u8>) {
     }
 }
 
-
 #[test]
 fn known_sha() {
     let string = "The quick brown fox jumps over the lazy dog".as_bytes();
-    let expected = [
-        0x2fd4e1c6,
-        0x7a2d28fc,
-        0xed849ee1,
-        0xbb76e739,
-        0x1b93eb12,
-    ];
+    let expected = [0x2fd4e1c6, 0x7a2d28fc, 0xed849ee1, 0xbb76e739, 0x1b93eb12];
 
     let sha = compute_sha(&string);
     assert_eq!(expected, sha);

@@ -47,3 +47,33 @@ There are also several things about rust that I struggled with:
 Performance of this code is interesting.  It seems to be a lot faster than
 shasum distributed with OSX on smaller files, but slower on larger files (larger
 than 150MB). 
+
+```
+$ du -h ~/Downloads/sintel.mp4 
+123M	/Users/nathan/Downloads/sintel.mp4
+$ time cat ~/Downloads/sintel.mp4 | ./target/release/sha 
+50f1c70eeabbe3445d11a1c602c7851648156c2d
+
+real	0m1.325s
+user	0m1.216s
+sys	0m0.220s
+$ time cat ~/Downloads/sintel.mp4 | shasum
+50f1c70eeabbe3445d11a1c602c7851648156c2d  -
+
+real	0m0.746s
+user	0m0.695s
+sys	0m0.181s
+
+$ time echo -n "What is my sha1 message digest?" | ./target/release/sha 
+3255d4afb6e4fcd2392d1da6b8105f8cb2ca3dda
+
+real	0m0.010s
+user	0m0.003s
+sys	0m0.006s
+$ time echo -n "What is my sha1 message digest?" | shasum
+3255d4afb6e4fcd2392d1da6b8105f8cb2ca3dda  -
+
+real	0m0.056s
+user	0m0.041s
+sys	0m0.012s
+```

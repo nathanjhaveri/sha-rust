@@ -4,7 +4,7 @@ use std::io::Read;
 fn main() {
     let mut buf: Vec<u8> = Vec::new();
     io::stdin().read_to_end(&mut buf).expect("Error");
-    let digest = compute_sha(&buf);
+    let digest = compute_sha(&mut buf);
     println!("{}", format_digest(&digest));
 }
 
@@ -21,9 +21,8 @@ fn u8s_to_u32(u8s: &[u8]) -> u32 {
     ((u8s[0] as u32) << 24) | ((u8s[1] as u32) << 16) | ((u8s[2] as u32) << 8) | (u8s[3] as u32)
 }
 
-fn compute_sha(input: &[u8]) -> [u32; 5] {
+fn compute_sha(mut message: &mut Vec<u8>) -> [u32; 5] {
     // Algorithm from wikipedia: https://en.wikipedia.org/wiki/SHA-1
-    let mut message = input.to_vec();
     let mut h0: u32 = 0x67452301;
     let mut h1: u32 = 0xEFCDAB89;
     let mut h2: u32 = 0x98BADCFE;
@@ -112,16 +111,16 @@ fn pre_process_message(message: &mut Vec<u8>) {
 
 #[test]
 fn known_sha() {
-    let string = "The quick brown fox jumps over the lazy dog".as_bytes();
+    let mut string = "The quick brown fox jumps over the lazy dog".as_bytes().to_vec();
     let expected = [0x2fd4e1c6, 0x7a2d28fc, 0xed849ee1, 0xbb76e739, 0x1b93eb12];
 
-    let sha = compute_sha(&string);
+    let sha = compute_sha(&mut string);
     assert_eq!(expected, sha);
 }
 
 #[test]
 fn blank_sha() {
-    let sha = compute_sha(&[]);
+    let sha = compute_sha(&mut [].to_vec());
     let h0 = 0xda39a3ee;
     let h1 = 0x5e6b4b0d;
     let h2 = 0x3255bfef;
